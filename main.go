@@ -26,7 +26,6 @@ func (e ErrorMessage) Error() string {
 	return e.Message
 }
 
-var books []Book
 var db *sql.DB
 
 func init() {
