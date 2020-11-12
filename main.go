@@ -49,7 +49,7 @@ func main() {
 	router.HandleFunc("/books", getBooks).Methods("GET")
 	router.HandleFunc("/books/{id}", getBook).Methods("GET")
 	router.HandleFunc("/books", postBook).Methods("POST")
-	router.HandleFunc("/books/{id}", updateBook).Methods("PUT")
+	router.HandleFunc("/books", updateBook).Methods("PUT")
 	router.HandleFunc("/books/{id}", deleteBook).Methods("DELETE")
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
@@ -100,6 +100,29 @@ func postBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateBook(w http.ResponseWriter, r *http.Request) {
+	var book Book
+	err := json.NewDecoder(r.Body).Decode(&book)
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	result, err := db.Exec("update books set title=$1, author=$2, year=$3 where id=$4 RETURNING id;", &book.Title, &book.Author, &book.Year, &book.ID)
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	rowsUpdated, err := result.RowsAffected()
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	json.NewEncoder(w).Encode(rowsUpdated)
 }
 
 func deleteBook(w http.ResponseWriter, r *http.Request) {
