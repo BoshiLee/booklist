@@ -1,10 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/lib/pq"
+	"github.com/subosito/gotenv"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Book struct {
@@ -23,8 +27,25 @@ func (e ErrorMessage) Error() string {
 }
 
 var books []Book
+var db *sql.DB
+
+func init() {
+	gotenv.Load()
+}
+
+func logFatal(err error) {
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+}
 
 func main() {
+	pqUrl, err := pq.ParseURL(os.Getenv("SQL_URL"))
+	logFatal(err)
+	db, err = sql.Open("postgres", pqUrl)
+	logFatal(err)
+	err = db.Ping()
+
 	router := mux.NewRouter()
 	router.HandleFunc("/books", getBooks).Methods("GET")
 	router.HandleFunc("/books/{id}", getBook).Methods("GET")
