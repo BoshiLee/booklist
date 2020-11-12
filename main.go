@@ -56,10 +56,28 @@ func main() {
 }
 
 func getBooks(w http.ResponseWriter, r *http.Request) {
+	books, err := getAllBooks()
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
 	json.NewEncoder(w).Encode(books)
 }
 
 func getBook(w http.ResponseWriter, r *http.Request) {
+	var book Book
+	params := mux.Vars(r)
+	rows := db.QueryRow("select * from books where id=$1", params["id"])
+	err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	json.NewEncoder(w).Encode(book)
 }
 
 func postBook(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +90,25 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func checkBookIdContainsInBooks(id int) (int, error) {
+func getAllBooks() ([]Book, error) {
+	books = []Book{}
+	rows, err := db.Query("select * from books")
+	if err != nil {
+		return books, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var book Book
+		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
+		if err != nil {
+			return books, err
+		}
+		books = append(books, book)
+	}
+	return books, nil
+}
+
+func checkBookIdContainsInBooks(id int, books []Book) (int, error) {
 	for i, book := range books {
 		if book.ID == id {
 			return i, nil
