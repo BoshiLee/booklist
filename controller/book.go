@@ -58,19 +58,21 @@ func (c *BookController) PostBook(db *sql.DB) http.HandlerFunc {
 		br := repository.BookRepository{}
 		var error model.ErrorMessage
 		err := json.NewDecoder(r.Body).Decode(&book)
-		if err != nil {
-			error.Message = "Please provide correct book format."
-			utils.SendError(w, http.StatusForbidden, error)
+
+		if err != nil || book.Author == "" || book.Title == "" || book.Year == "" {
+			error.Message = "One or more fields are missing!"
+			utils.SendError(w, http.StatusForbidden, error) /// 400
 			return
 		}
-		bookId, err := br.CreateABook(db, book)
+
+		s, err := br.CreateABook(db, book)
 		if err != nil {
 			error.Message = error.Error()
-			utils.SendError(w, http.StatusInternalServerError, error)
+			utils.SendError(w, http.StatusInternalServerError, error) /// 500
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		utils.SendSuccess(w, &bookId)
+		w.Header().Set("Content-Type", "text/plain")
+		utils.SendSuccess(w, s)
 	}
 }
 
@@ -96,6 +98,7 @@ func (c *BookController) UpdateBook(db *sql.DB) http.HandlerFunc {
 			}
 			return
 		}
+		w.Header().Set("Content-Type", "text/plain")
 		utils.SendSuccess(w, s)
 	}
 }
@@ -107,15 +110,16 @@ func (c *BookController) DeleteBook(db *sql.DB) http.HandlerFunc {
 		parmas := mux.Vars(r)
 		s, err := br.DeleteABook(db, parmas["id"])
 		if err != nil {
-			if err == sql.ErrNoRows {
-				error.Message = "Resource not found"
-				utils.SendError(w, http.StatusNotFound, error)
+			if s != "" {
+				error.Message = s
+				utils.SendError(w, http.StatusNotFound, error) // 404
 			} else {
 				error.Message = error.Error()
-				utils.SendError(w, http.StatusInternalServerError, error)
+				utils.SendError(w, http.StatusInternalServerError, error) // 500
 			}
 			return
 		}
+		w.Header().Set("Content-Type", "text/plain")
 		utils.SendSuccess(w, s)
 	}
 }
