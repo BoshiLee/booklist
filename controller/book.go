@@ -52,74 +52,70 @@ func (c *BookController) GetBook(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func (c *BookController) UpdateBook(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var book model.Book
-		err := json.NewDecoder(r.Body).Decode(&book)
-		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
-			return
-		}
-		result, err := db.Exec("update books set title=$1, author=$2, year=$3 where id=$4 RETURNING id;", &book.Title, &book.Author, &book.Year, &book.ID)
-		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
-			return
-		}
-		rowsUpdated, err := result.RowsAffected()
-		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
-			return
-		}
-		json.NewEncoder(w).Encode(rowsUpdated)
-	}
-}
-
 func (c *BookController) PostBook(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var book model.Book
-		var id int
+		br := repository.BookRepository{}
+		var error model.ErrorMessage
 		err := json.NewDecoder(r.Body).Decode(&book)
 		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
+			error.Message = "Please provide correct book format."
+			utils.SendError(w, http.StatusForbidden, error)
 			return
 		}
-		err = db.QueryRow("insert into books (title, author, year) values($1, $2, $3) RETURNING id;", &book.Title, &book.Author, &book.Year).Scan(&id)
+		bookId, err := br.CreateABook(db, book)
 		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
+			error.Message = error.Error()
+			utils.SendError(w, http.StatusInternalServerError, error)
 			return
 		}
-		json.NewEncoder(w).Encode(&id)
+		w.Header().Set("Content-Type", "application/json")
+		utils.SendSuccess(w, &bookId)
+	}
+}
+
+func (c *BookController) UpdateBook(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var book model.Book
+		rb := repository.BookRepository{}
+		var error model.ErrorMessage
+		err := json.NewDecoder(r.Body).Decode(&book)
+		if err != nil {
+			error.Message = err.Error()
+			utils.SendError(w, http.StatusInternalServerError, error)
+			return
+		}
+		s, err := rb.UpdateBook(db, &book)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				error.Message = "Resource not found"
+				utils.SendError(w, http.StatusNotFound, error)
+			} else {
+				error.Message = error.Error()
+				utils.SendError(w, http.StatusInternalServerError, error)
+			}
+			return
+		}
+		utils.SendSuccess(w, s)
 	}
 }
 
 func (c *BookController) DeleteBook(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		br := repository.BookRepository{}
+		var error model.ErrorMessage
 		parmas := mux.Vars(r)
-		result, err := db.Exec("delete from books where id=$1", parmas["id"])
+		s, err := br.DeleteABook(db, parmas["id"])
 		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
+			if err == sql.ErrNoRows {
+				error.Message = "Resource not found"
+				utils.SendError(w, http.StatusNotFound, error)
+			} else {
+				error.Message = error.Error()
+				utils.SendError(w, http.StatusInternalServerError, error)
+			}
 			return
 		}
-		rowAffected, err := result.RowsAffected()
-
-		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
-			return
-		}
-		json.NewEncoder(w).Encode(rowAffected)
+		utils.SendSuccess(w, s)
 	}
 }
