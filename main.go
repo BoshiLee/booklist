@@ -37,6 +37,7 @@ func main() {
 	router.HandleFunc("/books/{id}", getBook).Methods("GET")
 	router.HandleFunc("/books", postBook).Methods("POST")
 	router.HandleFunc("/books/{id}", updateBook).Methods("PUT")
+	router.HandleFunc("/books/{id}", deleteBook).Methods("DELETE")
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
 
@@ -96,6 +97,24 @@ func updateBook(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&book)
 }
 
+func deleteBook(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	bookId, err := strconv.Atoi(params["id"])
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			"Please put correct id.",
+		})
+		return
+	}
+	_, errMsg := checkBookIdContainsInBooks(bookId)
+	if errMsg != nil {
+		json.NewEncoder(w).Encode(errMsg)
+		return
+	}
+	books = remove(books, bookId)
+	json.NewEncoder(w).Encode(books)
+}
+
 func checkBookIdContainsInBooks(id int) (*Book, error) {
 	for _, book := range books {
 		if book.ID == id {
@@ -105,4 +124,8 @@ func checkBookIdContainsInBooks(id int) (*Book, error) {
 	return nil, ErrorMessage{
 		"Your Book is Not in shelf, please check another id.",
 	}
+}
+
+func remove(slice []Book, s int) []Book {
+	return append(slice[:s], slice[s+1:]...)
 }
