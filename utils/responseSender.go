@@ -8,6 +8,7 @@ import (
 
 func SendError(w http.ResponseWriter, statusCode int, err model.ErrorMessage) {
 	w.WriteHeader(statusCode)
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(err)
 }
 

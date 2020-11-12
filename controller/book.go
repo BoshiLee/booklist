@@ -2,8 +2,11 @@ package controller
 
 import (
 	"bookList/model"
+	"bookList/repository"
+	"bookList/utils"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
 )
@@ -13,30 +16,39 @@ type BookController struct {
 
 func (c *BookController) GetBooks(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		books, err := getAllBooks(db)
+		br := repository.BookRepository{}
+		var error model.ErrorMessage
+		books, err := br.GetBooks(db)
 		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
+			fmt.Println(err.Error())
+			error.Message = "Fetch Books Failed"
+			utils.SendError(w, http.StatusInternalServerError, error)
 			return
 		}
-		json.NewEncoder(w).Encode(books)
+		w.Header().Set("Content-Type", "application/json")
+		utils.SendSuccess(w, books)
 	}
 }
 
 func (c *BookController) GetBook(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var book model.Book
+		var error model.ErrorMessage
+		rb := repository.BookRepository{}
 		params := mux.Vars(r)
-		row := db.QueryRow("select * from books where id=$1", params["id"])
-		err := row.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
+		book, err := rb.GetBook(db, params["id"])
 		if err != nil {
-			json.NewEncoder(w).Encode(model.ErrorMessage{
-				err.Error(),
-			})
+			if err == sql.ErrNoRows {
+				error.Message = "Resource not found"
+				utils.SendError(w, http.StatusNotFound, error)
+			} else {
+				error.Message = error.Error()
+				utils.SendError(w, http.StatusInternalServerError, error)
+			}
 			return
 		}
-		json.NewEncoder(w).Encode(book)
+		w.Header().Set("Content-Type", "application/json")
+		utils.SendSuccess(w, book)
 	}
 }
 
@@ -110,22 +122,4 @@ func (c *BookController) DeleteBook(db *sql.DB) http.HandlerFunc {
 		}
 		json.NewEncoder(w).Encode(rowAffected)
 	}
-}
-
-func getAllBooks(db *sql.DB) ([]model.Book, error) {
-	books := []model.Book{}
-	rows, err := db.Query("select * from books")
-	if err != nil {
-		return books, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var book model.Book
-		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
-		if err != nil {
-			return books, err
-		}
-		books = append(books, book)
-	}
-	return books, nil
 }
