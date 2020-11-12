@@ -106,22 +106,22 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	_, errMsg := checkBookIdContainsInBooks(bookId)
+	index, errMsg := checkBookIdContainsInBooks(bookId)
 	if errMsg != nil {
 		json.NewEncoder(w).Encode(errMsg)
 		return
 	}
-	books = remove(books, bookId)
+	books = remove(books, index)
 	json.NewEncoder(w).Encode(books)
 }
 
-func checkBookIdContainsInBooks(id int) (*Book, error) {
-	for _, book := range books {
+func checkBookIdContainsInBooks(id int) (int, error) {
+	for i, book := range books {
 		if book.ID == id {
-			return &book, nil
+			return i, nil
 		}
 	}
-	return nil, ErrorMessage{
+	return 0, ErrorMessage{
 		"Your Book is Not in shelf, please check another id.",
 	}
 }
