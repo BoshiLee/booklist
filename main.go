@@ -126,7 +126,23 @@ func updateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteBook(w http.ResponseWriter, r *http.Request) {
+	parmas := mux.Vars(r)
+	result, err := db.Exec("delete from books where id=$1", parmas["id"])
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	rowAffected, err := result.RowsAffected()
 
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	json.NewEncoder(w).Encode(rowAffected)
 }
 
 func getAllBooks() ([]Book, error) {
