@@ -1,30 +1,15 @@
 package main
 
 import (
+	"bookList/dirver"
+	"bookList/model"
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"github.com/lib/pq"
 	"github.com/subosito/gotenv"
 	"log"
 	"net/http"
-	"os"
 )
-
-type Book struct {
-	ID     int    `json:"id"`
-	Title  string `json:"title"`
-	Author string `json:"author"`
-	Year   string `json:"year"`
-}
-
-type ErrorMessage struct {
-	Message string `json:"message"`
-}
-
-func (e ErrorMessage) Error() string {
-	return e.Message
-}
 
 var db *sql.DB
 
@@ -32,19 +17,9 @@ func init() {
 	gotenv.Load()
 }
 
-func logFatal(err error) {
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-}
-
 func main() {
-	pqUrl, err := pq.ParseURL(os.Getenv("SQL_URL"))
-	logFatal(err)
-	db, err = sql.Open("postgres", pqUrl)
-	logFatal(err)
-	err = db.Ping()
 
+	db = dirver.ConnectToDB()
 	router := mux.NewRouter()
 	router.HandleFunc("/books", getBooks).Methods("GET")
 	router.HandleFunc("/books/{id}", getBook).Methods("GET")
@@ -57,7 +32,7 @@ func main() {
 func getBooks(w http.ResponseWriter, r *http.Request) {
 	books, err := getAllBooks()
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
@@ -66,12 +41,12 @@ func getBooks(w http.ResponseWriter, r *http.Request) {
 }
 
 func getBook(w http.ResponseWriter, r *http.Request) {
-	var book Book
+	var book model.Book
 	params := mux.Vars(r)
 	row := db.QueryRow("select * from books where id=$1", params["id"])
 	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
@@ -80,18 +55,18 @@ func getBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func postBook(w http.ResponseWriter, r *http.Request) {
-	var book Book
+	var book model.Book
 	var id int
 	err := json.NewDecoder(r.Body).Decode(&book)
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
 	}
 	err = db.QueryRow("insert into books (title, author, year) values($1, $2, $3) RETURNING id;", &book.Title, &book.Author, &book.Year).Scan(&id)
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
@@ -100,24 +75,24 @@ func postBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateBook(w http.ResponseWriter, r *http.Request) {
-	var book Book
+	var book model.Book
 	err := json.NewDecoder(r.Body).Decode(&book)
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
 	}
 	result, err := db.Exec("update books set title=$1, author=$2, year=$3 where id=$4 RETURNING id;", &book.Title, &book.Author, &book.Year, &book.ID)
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
 	}
 	rowsUpdated, err := result.RowsAffected()
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
@@ -129,7 +104,7 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 	parmas := mux.Vars(r)
 	result, err := db.Exec("delete from books where id=$1", parmas["id"])
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
@@ -137,7 +112,7 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 	rowAffected, err := result.RowsAffected()
 
 	if err != nil {
-		json.NewEncoder(w).Encode(ErrorMessage{
+		json.NewEncoder(w).Encode(model.ErrorMessage{
 			err.Error(),
 		})
 		return
@@ -145,15 +120,15 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rowAffected)
 }
 
-func getAllBooks() ([]Book, error) {
-	books := []Book{}
+func getAllBooks() ([]model.Book, error) {
+	books := []model.Book{}
 	rows, err := db.Query("select * from books")
 	if err != nil {
 		return books, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var book Book
+		var book model.Book
 		err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
 		if err != nil {
 			return books, err
@@ -163,17 +138,17 @@ func getAllBooks() ([]Book, error) {
 	return books, nil
 }
 
-func checkBookIdContainsInBooks(id int, books []Book) (int, error) {
+func checkBookIdContainsInBooks(id int, books []model.Book) (int, error) {
 	for i, book := range books {
 		if book.ID == id {
 			return i, nil
 		}
 	}
-	return 0, ErrorMessage{
+	return 0, model.ErrorMessage{
 		"Your Book is Not in shelf, please check another id.",
 	}
 }
 
-func remove(slice []Book, s int) []Book {
+func remove(slice []model.Book, s int) []model.Book {
 	return append(slice[:s], slice[s+1:]...)
 }
