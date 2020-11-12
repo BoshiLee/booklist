@@ -68,8 +68,8 @@ func getBooks(w http.ResponseWriter, r *http.Request) {
 func getBook(w http.ResponseWriter, r *http.Request) {
 	var book Book
 	params := mux.Vars(r)
-	rows := db.QueryRow("select * from books where id=$1", params["id"])
-	err := rows.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
+	row := db.QueryRow("select * from books where id=$1", params["id"])
+	err := row.Scan(&book.ID, &book.Title, &book.Author, &book.Year)
 	if err != nil {
 		json.NewEncoder(w).Encode(ErrorMessage{
 			err.Error(),
@@ -80,6 +80,23 @@ func getBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func postBook(w http.ResponseWriter, r *http.Request) {
+	var book Book
+	var id int
+	err := json.NewDecoder(r.Body).Decode(&book)
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	err = db.QueryRow("insert into books (title, author, year) values($1, $2, $3) RETURNING id;", &book.Title, &book.Author, &book.Year).Scan(&id)
+	if err != nil {
+		json.NewEncoder(w).Encode(ErrorMessage{
+			err.Error(),
+		})
+		return
+	}
+	json.NewEncoder(w).Encode(&id)
 }
 
 func updateBook(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +107,7 @@ func deleteBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAllBooks() ([]Book, error) {
-	books = []Book{}
+	books := []Book{}
 	rows, err := db.Query("select * from books")
 	if err != nil {
 		return books, err
