@@ -21,6 +21,7 @@ func main() {
 	db = dirver.ConnectToDB()
 	router := mux.NewRouter()
 	bc := controller.BookController{}
+	router.HandleFunc("/date", bc.GetDate()).Methods("GET")
 	router.HandleFunc("/books", bc.GetBooks(db)).Methods("GET")
 	router.HandleFunc("/books/{id}", bc.GetBook(db)).Methods("GET")
 	router.HandleFunc("/books", bc.PostBook(db)).Methods("POST")

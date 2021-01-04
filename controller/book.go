@@ -9,9 +9,17 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"net/http"
+	"time"
 )
 
 type BookController struct {
+}
+
+func (c *BookController) GetDate() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		utils.SendSuccess(w, time.Now())
+	}
 }
 
 func (c *BookController) GetBooks(db *sql.DB) http.HandlerFunc {
